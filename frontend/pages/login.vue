@@ -7,22 +7,22 @@
 </template>
 
 <script>
-import { mapActions } from 'vuex'
+import { mapActions } from 'vuex';
 
 export default {
   data() {
     return {
       email: '',
       password: '',
-    }
+    };
   },
   methods: {
     ...mapActions('account', ['logIn']),
     onClickLogIn() {
-      this.logIn([this.email, this.password])
+      this.logIn([this.email, this.password]);
     },
   },
-}
+};
 </script>
 
 <style></style>
