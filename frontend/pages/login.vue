@@ -7,7 +7,7 @@
 </template>
 
 <script>
-import { mapActions } from 'vuex';
+import { mapActions, mapGetters } from 'vuex';
 
 export default {
   data() {
@@ -15,6 +15,12 @@ export default {
       email: '',
       password: '',
     };
+  },
+  computed: {
+    ...mapGetters('account', ['loggedIn']),
+  },
+  mounted() {
+    console.log(`loggedIn: `, this.loggedIn);
   },
   methods: {
     ...mapActions('account', ['logIn']),

@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
@@ -8,16 +9,28 @@ const port = 4001;
 
 const privateKey = "test123";
 
+app.use(cors());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 app.post("/login", (req, res) => {
   const token = jwt.sign({ foo: "bar" }, privateKey, { expiresIn: 15 });
+  console.log("login..");
   console.dir(token);
 
-  res.cookie("sid", token);
-  console.log(req.cookies);
+  // res.cookie("sidd", token, {
+  //   httpOnly: true,
+  //   maxAge: 900000,
+  // });
+
+  // res.cookie("sidd", token);
+  res.cookie("sidd", token, {
+    maxAge: 86400000,
+    httpOnly: true,
+    domain: "localhost:3000/login",
+  });
+  // console.dir(req.cookies);
   /**
 	 * {options}
 	 	- maxAge : 현재 시간으로부터 만료 시간을 밀리초 단위로 설정
@@ -29,7 +42,7 @@ app.post("/login", (req, res) => {
 		- signed : cookie가 서명되어야 할 지를 결정
 	 */
 
-	 // res.clearCookie(key); 쿠키삭제
+  // res.clearCookie(key); 쿠키삭제
   res.send(token);
 });
 
