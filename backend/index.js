@@ -3,34 +3,93 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
+const crypto = require("crypto");
+
+const accountLib = require("./lib/account");
+const constants = require("./common/constants");
 
 const app = express();
 const port = 4001;
 
-const privateKey = "test123";
+const privateKey = "key";
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-app.post("/login", (req, res) => {
-  const token = jwt.sign({ foo: "bar" }, privateKey, { expiresIn: 15 });
-  console.log("login..");
-  console.dir(token);
+const accounts = {};
+const refreshTokens = {};
 
-  // res.cookie("sidd", token, {
-  //   httpOnly: true,
-  //   maxAge: 900000,
-  // });
+// const accessTokenOption = {
+//   expiresIn: 15,
+// };
 
-  // res.cookie("sidd", token);
-  res.cookie("sidd", token, {
-    maxAge: 86400000,
-    httpOnly: true,
-    domain: "localhost:3000/login",
+const accessTokenCookieOption = {
+  maxAge: 1209600000,
+  httpOnly: true,
+};
+
+app.post("/register", (req, res) => {
+  const email = req.body.email;
+  const password = req.body.password;
+
+  if (accounts.hasOwnProperty(email)) {
+    return res.status(422).send();
+  }
+
+  const salt = accountLib.createSalt();
+  const encryptPassword = accountLib.encryptPassword(salt, password);
+  accounts[email] = {
+    email,
+    salt,
+    encryptPassword,
+  };
+
+  const accessToken = accountLib.accessToken(email);
+  res.cookie("access_token", accessToken, constants.accessTokenCookieOption);
+
+  const refreshToken = accountLib.refreshToken(email);
+  refreshTokens[accessToken] = refreshToken;
+
+  res.status(200).send({
+    email,
   });
-  // console.dir(req.cookies);
+});
+
+app.post("/login", (req, res) => {
+  const email = req.body.email;
+  const password = req.body.password;
+
+  if (!accounts.hasOwnProperty(email)) {
+    return res.status(422).send();
+  }
+
+  const account = accounts[email];
+  const salt = account.salt;
+  const encryptPassword = accountLib.encryptPassword(salt, password);
+  console.log(account.encryptPassword);
+  console.log(encryptPassword);
+  if (encryptPassword.toString("base64") !== account.encryptPassword.toString("base64")) {
+    return res.status(401).send(); 
+  }
+
+  const accessToken = accountLib.accessToken(email);
+  res.cookie("access_token", accessToken, constants.accessTokenCookieOption);
+
+  const refreshToken = accountLib.refreshToken(email);
+  refreshTokens[accessToken] = refreshToken;
+
+  res.status(200).send({
+    email,
+  });
+  
+  // res.setHeader("SET-COOKIE", `sid=${token}`);
   /**
 	 * {options}
 	 	- maxAge : 현재 시간으로부터 만료 시간을 밀리초 단위로 설정
@@ -43,14 +102,62 @@ app.post("/login", (req, res) => {
 	 */
 
   // res.clearCookie(key); 쿠키삭제
-  res.send(token);
 });
 
-app.post("/authorization", (req, res) => {
-  // console.log(req.body.token);
-  console.dir(jwt.verify(req.body.token, privateKey));
+app.post("/logout", (req, res) => {
+  const accessToken = req.cookies.access_token;
+  if (accessToken) {
+    delete refreshTokens[accessToken];
+    res.clearCookie(accessToken);
+  }
 
-  res.send("welcome, " + req.body.token);
+  res.status(200).send();
+});
+
+app.post("/loginWithToken", (req, res) => {
+  const accessToken = req.cookies.access_token;
+  const [accessTokenErr, accessTokenResult] = accountLib.verifyToken(accessToken);
+  if (accessTokenErr) {
+    switch (accessTokenErr) {
+      case "jwt expired": {
+        const refreshToken = refreshTokens[accessToken];
+        if (!refreshToken) return res.status(401).send();
+
+        const [refreshTokenErr, refreshTokenResult] = accountLib.verifyToken(refreshToken);
+        if (refreshTokenErr) {
+          delete refreshTokens[accessToken];
+          return res.status(401).send();
+        }
+
+        const email = refreshTokenResult.email;
+        const newAccessToken = accountLib.accessToken(email);
+        res.cookie("access_token", newAccessToken, constants.accessTokenCookieOption);
+
+        refreshTokens[newAccessToken] = refreshTokens[accessToken];
+        delete refreshTokens[accessToken];
+
+        res.status(200).send({
+          email,
+        });
+
+        return;
+      }
+      default: {
+        return res.status(401).send();
+      }
+    }
+  }
+
+  const email = accessTokenResult.email;
+  const account = accounts[email];
+  if (!account) return res.status(401).send();
+
+  const newAccessToken = accountLib.accessToken(email);
+  res.cookie("access_token", newAccessToken, constants.accessTokenCookieOption);
+
+  refreshTokens[newAccessToken] = refreshTokens[accessToken];
+  delete refreshTokens[accessToken];
+  res.status(200).send({ email });
 });
 
 app.listen(port, () => {

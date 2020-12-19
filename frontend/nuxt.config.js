@@ -40,8 +40,7 @@ export default {
   // Axios module configuration (https://go.nuxtjs.dev/config-axios)
   axios: {
     baseURL: process.env.BASE_URL || 'http://localhost:4001',
-    origin: 'http://localhost:4001',
-    withCredentials: true,
+    credentials: true,
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',

@@ -3,6 +3,7 @@
     <input v-model="email" />
     <input v-model="password" />
     <button @click="onClickLogIn">LogIn</button>
+    <button @click="onClickCheck">Check</button>
   </div>
 </template>
 
@@ -23,9 +24,12 @@ export default {
     console.log(`loggedIn: `, this.loggedIn);
   },
   methods: {
-    ...mapActions('account', ['logIn']),
+    ...mapActions('account', ['logIn', 'check']),
     onClickLogIn() {
       this.logIn([this.email, this.password]);
+    },
+    onClickCheck() {
+      this.check();
     },
   },
 };
