@@ -1,15 +1,16 @@
 <template>
-  <div>
+  <div v-if="!idle">
     <input v-model="email" />
     <input v-model="password" />
-    <button @click="onClickResister">LogIn</button>
+    <button @click="onClickResister">Register</button>
   </div>
 </template>
 
 <script>
 import { mapActions, mapGetters } from 'vuex';
-
+import { ForbidLoggedInUser } from '../mixins/ForbidLoggedInUser.js';
 export default {
+  mixins: [ForbidLoggedInUser],
   data() {
     return {
       email: '',
@@ -17,7 +18,7 @@ export default {
     };
   },
   computed: {
-    ...mapGetters('account', ['loggingIn', 'loggedIn']),
+    ...mapGetters('account', ['idle', 'loggingIn', 'loggedIn']),
   },
   watch: {
     loggedIn() {
@@ -26,8 +27,13 @@ export default {
       this.$router.replace('/');
     },
   },
+  created() {
+    if (this.loggedIn) this.$router.replace('/');
+
+    // await this.logInWithToken();
+  },
   methods: {
-    ...mapActions('account', ['register']),
+    ...mapActions('account', ['register', 'logInWithToken']),
     onClickResister() {
       this.register([this.email, this.password]);
     },
@@ -35,4 +41,4 @@ export default {
 };
 </script>
 
-<style></style>
+<style lans="scss"></style>

@@ -40,11 +40,21 @@ export const actions = {
   },
 
   logIn({ commit }, [email, password]) {
-    console.log(email, password);
     this.$axios
       .$post('/login', { email, password })
       .then((res) => {
-        console.dir(res);
+        commit('setLogInStatus', logInStatuses.loggedIn);
+      })
+      .catch((err) => {
+        console.dir(err);
+      });
+  },
+
+  logOut({ commit }) {
+    this.$axios
+      .$post('/logout')
+      .then((res) => {
+        commit('resetPrivateData');
       })
       .catch((err) => {
         console.dir(err);
@@ -58,10 +68,6 @@ export const actions = {
     } catch (err) {
       commit('setLogInStatus', logInStatuses.logOut);
     }
-  },
-
-  check({ commit }) {
-    this.$axios.$get('/check');
   },
 };
 

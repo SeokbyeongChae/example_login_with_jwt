@@ -1,17 +1,13 @@
 const express = require("express");
 const cors = require("cors");
-const jwt = require("jsonwebtoken");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
-const crypto = require("crypto");
 
 const accountLib = require("./lib/account");
 const constants = require("./common/constants");
 
 const app = express();
 const port = 4001;
-
-const privateKey = "key";
 
 app.use(
   cors({
@@ -25,15 +21,6 @@ app.use(cookieParser());
 
 const accounts = {};
 const refreshTokens = {};
-
-// const accessTokenOption = {
-//   expiresIn: 15,
-// };
-
-const accessTokenCookieOption = {
-  maxAge: 1209600000,
-  httpOnly: true,
-};
 
 app.post("/register", (req, res) => {
   const email = req.body.email;
@@ -73,10 +60,8 @@ app.post("/login", (req, res) => {
   const account = accounts[email];
   const salt = account.salt;
   const encryptPassword = accountLib.encryptPassword(salt, password);
-  console.log(account.encryptPassword);
-  console.log(encryptPassword);
   if (encryptPassword.toString("base64") !== account.encryptPassword.toString("base64")) {
-    return res.status(401).send(); 
+    return res.status(401).send();
   }
 
   const accessToken = accountLib.accessToken(email);
@@ -88,7 +73,7 @@ app.post("/login", (req, res) => {
   res.status(200).send({
     email,
   });
-  
+
   // res.setHeader("SET-COOKIE", `sid=${token}`);
   /**
 	 * {options}
@@ -108,7 +93,7 @@ app.post("/logout", (req, res) => {
   const accessToken = req.cookies.access_token;
   if (accessToken) {
     delete refreshTokens[accessToken];
-    res.clearCookie(accessToken);
+    res.clearCookie("access_token");
   }
 
   res.status(200).send();
@@ -116,16 +101,22 @@ app.post("/logout", (req, res) => {
 
 app.post("/loginWithToken", (req, res) => {
   const accessToken = req.cookies.access_token;
+  if (!accessToken) return res.status(401).send();
+
   const [accessTokenErr, accessTokenResult] = accountLib.verifyToken(accessToken);
   if (accessTokenErr) {
     switch (accessTokenErr) {
       case "jwt expired": {
         const refreshToken = refreshTokens[accessToken];
-        if (!refreshToken) return res.status(401).send();
+        if (!refreshToken) {
+          res.clearCookie("access_token");
+          return res.status(401).send();
+        }
 
         const [refreshTokenErr, refreshTokenResult] = accountLib.verifyToken(refreshToken);
         if (refreshTokenErr) {
           delete refreshTokens[accessToken];
+          res.clearCookie("access_token");
           return res.status(401).send();
         }
 
@@ -143,6 +134,8 @@ app.post("/loginWithToken", (req, res) => {
         return;
       }
       default: {
+        delete refreshTokens[accessToken];
+        res.clearCookie("access_token");
         return res.status(401).send();
       }
     }
@@ -150,7 +143,11 @@ app.post("/loginWithToken", (req, res) => {
 
   const email = accessTokenResult.email;
   const account = accounts[email];
-  if (!account) return res.status(401).send();
+  if (!account) {
+    delete refreshTokens[accessToken];
+    res.clearCookie("access_token");
+    return res.status(401).send();
+  }
 
   const newAccessToken = accountLib.accessToken(email);
   res.cookie("access_token", newAccessToken, constants.accessTokenCookieOption);

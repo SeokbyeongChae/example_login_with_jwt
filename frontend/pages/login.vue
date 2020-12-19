@@ -3,7 +3,6 @@
     <input v-model="email" />
     <input v-model="password" />
     <button @click="onClickLogIn">LogIn</button>
-    <button @click="onClickCheck">Check</button>
   </div>
 </template>
 
@@ -11,6 +10,7 @@
 import { mapActions, mapGetters } from 'vuex';
 
 export default {
+  middleware: 'updateLogInStatusWithToken',
   data() {
     return {
       email: '',
@@ -20,16 +20,20 @@ export default {
   computed: {
     ...mapGetters('account', ['loggedIn']),
   },
-  mounted() {
-    console.log(`loggedIn: `, this.loggedIn);
+  watch: {
+    loggedIn() {
+      if (!this.loggedIn) return;
+
+      this.$router.replace('/');
+    },
+  },
+  created() {
+    if (this.loggedIn) this.$router.replace('/');
   },
   methods: {
     ...mapActions('account', ['logIn', 'check']),
     onClickLogIn() {
       this.logIn([this.email, this.password]);
-    },
-    onClickCheck() {
-      this.check();
     },
   },
 };
